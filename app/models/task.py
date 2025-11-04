@@ -7,6 +7,7 @@ class Task(db.Model):
     title: Mapped[str]
     description: Mapped[str]
     completed_at: Mapped[datetime] = mapped_column(nullable=True)
+    # completed_at: Mapped[Optional[datetime]] = mapped_column()
 
     # Create a new Task object from data we received in a JSON request
     @classmethod
