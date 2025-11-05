@@ -22,7 +22,6 @@ class Task(db.Model):
         datetime.now(timezone.utc) if is_complete else None
     )
 
-
         return cls(
             title = data['title'],
             description = data['description'],
