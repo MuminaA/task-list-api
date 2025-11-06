@@ -5,6 +5,8 @@ from app.models import task
 from app.models.task import Task
 from app.db import db
 from datetime import datetime, timezone
+import os
+import requests
 
 tasks_bp = Blueprint('tasks_bp', __name__, url_prefix='/tasks')
 
@@ -85,12 +87,25 @@ def delete_task(task_id):
 @tasks_bp.patch('<task_id>/mark_complete')
 def mark_complete_task(task_id):
     task = validate_task(task_id)
+    url = 'https://slack.com/api/chat.postMessage'
 
-    task.completed_at = datetime.now((timezone.utc))
+    task.completed_at = datetime.now(timezone.utc)
 
     db.session.commit()
 
-    return Response(status=204, mimetype='application,json')
+    headers = {
+        "Authorization": f"Bearer {os.environ.get('SLACK_API')}",
+        "Content-Type": "application/json"
+    }
+
+    data = {
+        "channel": "task-notifications",
+        "text": f"Someone just completed the task {task.title}"
+    }
+    
+    requests.post(url, headers=headers, json=data)
+
+    return Response(status=204, mimetype='application/json')
 
 @tasks_bp.patch('<task_id>/mark_incomplete')
 def mark_incomplete_task(task_id):
