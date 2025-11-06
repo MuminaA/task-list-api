@@ -1,8 +1,6 @@
-from asyncio import tasks
-from flask import Blueprint
-from flask import abort, make_response, request, Response
-from app.models import task
+from flask import Blueprint, request, Response
 from app.models.task import Task
+from app.routes.route_utilities import validate_model, create_model
 from app.db import db
 from datetime import datetime, timezone
 import os
@@ -13,17 +11,7 @@ tasks_bp = Blueprint('tasks_bp', __name__, url_prefix='/tasks')
 @tasks_bp.post('')
 def create_task():
     request_body = request.get_json()
-
-    try:
-        new_task = Task.from_dict(request_body)
-    except KeyError as error:
-        response = {"details": f"Invalid data"}
-        abort(make_response(response, 400))
-    
-    db.session.add(new_task)
-    db.session.commit()
-
-    return new_task.to_dict(), 201
+    return create_model(Task, request_body)
 
 @tasks_bp.get('')
 def get_all_tasks():
@@ -59,13 +47,13 @@ def get_all_tasks():
 
 @tasks_bp.get('/<task_id>')
 def get_one_task(task_id):
-    task = validate_task(task_id)
+    task = validate_model(Task, task_id)
 
     return task.to_dict()
 
 @tasks_bp.put('/<task_id>')
 def update_one_task(task_id):
-    task = validate_task(task_id)
+    task = validate_model(Task, task_id)
     request_body = request.get_json()
 
     task.title = request_body['title']
@@ -77,7 +65,7 @@ def update_one_task(task_id):
 
 @tasks_bp.delete('/<task_id>')
 def delete_task(task_id):
-    task = validate_task(task_id)
+    task = validate_model(Task, task_id)
 
     db.session.delete(task)
     db.session.commit()
@@ -86,63 +74,35 @@ def delete_task(task_id):
 
 @tasks_bp.patch('<task_id>/mark_complete')
 def mark_complete_task(task_id):
-    task = validate_task(task_id)
-    url = 'https://slack.com/api/chat.postMessage'
+    task = validate_model(Task, task_id)
+    url = 'https://slack.com/api/chat.postMessage' # Slack API endpoint
 
-    task.completed_at = datetime.now(timezone.utc)
+    task.completed_at = datetime.now(timezone.utc) # Mark task as completed
 
     db.session.commit()
 
+    # Set headers for the Slack API request
     headers = {
-        "Authorization": f"Bearer {os.environ.get('SLACK_API')}",
-        "Content-Type": "application/json"
+        "Authorization": f"Bearer {os.environ.get('SLACK_API')}", # Slack token
+        "Content-Type": "application/json" # Sending JSON data
     }
 
+    # Prepare the data payload for Slack
     data = {
-        "channel": "task-notifications",
-        "text": f"Someone just completed the task {task.title}"
+        "channel": "task-notifications", # Slack channel to post message
+        "text": f"Someone just completed the task {task.title}" # Message content
     }
     
-    requests.post(url, headers=headers, json=data)
+    requests.post(url, headers=headers, json=data) # Send notification to Slack
 
     return Response(status=204, mimetype='application/json')
 
 @tasks_bp.patch('<task_id>/mark_incomplete')
 def mark_incomplete_task(task_id):
-    task= validate_task(task_id)
+    task= validate_model(Task, task_id)
     
     task.completed_at = None
 
     db.session.commit()
 
     return Response(status=204, mimetype='application/json')
-
-# Get a Task by ID, validate the ID, and return 404 if not found
-def validate_task(id):
-        try:
-            id = int(id)
-        except ValueError:
-            response = {'message': f'Task {id} not found'}
-            abort(make_response(response, 404))
-
-        query = db.select(Task).where(Task.id==id)
-        task = db.session.scalar(query)
-
-        if not task:
-            not_found = {'message': f'Task {id} not found'}
-            abort(make_response(not_found, 404))
-
-        return task
-
-# Create a new Task from a dictionary (like JSON data)
-def create_task_from_dic(data):
-    try:
-        task = Task.from_dict(data)
-    except KeyError as e:
-        abort(make_response({'message': f'Missing field: {e.args[0]}'}, 400))
-
-    # Save the Task to the database
-    db.session.add(task)
-    db.session.commit()
-
-    return task
