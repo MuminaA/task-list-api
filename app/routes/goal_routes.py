@@ -2,6 +2,7 @@ from flask import Blueprint, request, Response
 from .route_utilities import create_model, validate_model
 from app.models.goal import Goal
 from app.db import db
+from app.models.task import Task
 
 goals_bp = Blueprint('goal_bp', __name__, url_prefix='/goals')
 
@@ -49,3 +50,41 @@ def delete_goal(goal_id):
     db.session.commit()
 
     return Response(status=204, mimetype='application/json')
+
+@goals_bp.post('/<goal_id>/tasks')
+def create_task_with_goal(goal_id):
+    goal = validate_model(Goal, goal_id)
+    request_body = request.get_json()
+    # Get the list of task IDs from the request body
+    task_ids = request_body.get("task_ids")
+
+    if not task_ids or not isinstance(task_ids, list):
+        return {"details": "Invalid data"}, 400
+
+    # remove all current tasks from this goal
+    for task in goal.tasks:
+        task.goal_id = None
+
+    # For each task ID, find the task and associate it with the goal
+    for task_id in task_ids:
+        task = validate_model(Task, task_id)
+        task.goal_id = goal.id
+
+    db.session.commit()
+
+    return {
+        "id": goal.id,
+        "task_ids": task_ids
+    }, 200
+
+@goals_bp.get('/<goal_id>/tasks')
+def get_task_with_goal(goal_id):
+    goal = validate_model(Goal, goal_id)
+
+    # convert each task into a JSON-friendly dict
+    tasks = [task.to_dict() for task in goal.tasks]
+
+    response = goal.to_dict()
+    response["tasks"] = tasks
+
+    return response

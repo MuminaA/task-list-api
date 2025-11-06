@@ -1,6 +1,8 @@
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from ..db import db
 from datetime import datetime, timezone
+from sqlalchemy import ForeignKey
+from typing import Optional
 
 class Task(db.Model):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -8,6 +10,12 @@ class Task(db.Model):
     description: Mapped[str]
     completed_at: Mapped[datetime] = mapped_column(nullable=True)
     # completed_at: Mapped[Optional[datetime]] = mapped_column()
+    goal_id: Mapped[Optional[int]] = mapped_column(ForeignKey("goal.id"))
+    goal: Mapped[Optional["Goal"]] = relationship(back_populates="tasks")
+
+    from typing import TYPE_CHECKING
+    if TYPE_CHECKING:
+        from .goal import Goal
 
     # Create a new Task object from data we received in a JSON request
     @classmethod
@@ -25,7 +33,8 @@ class Task(db.Model):
         return cls(
             title = data['title'],
             description = data['description'],
-            completed_at = data.get('completed_at')
+            completed_at = data.get('completed_at'),
+            goal_id=data.get("goal_id", None)
         )
 
     # Turn this Task object into a dictionary so we can send it as JSON in a response
@@ -35,7 +44,8 @@ class Task(db.Model):
             'id': self.id,
             'title': self.title,
             'description': self.description,
-            'is_complete': bool(self.completed_at)
+            'is_complete': bool(self.completed_at),
+            "goal_id": self.goal_id,
         }
 
 
