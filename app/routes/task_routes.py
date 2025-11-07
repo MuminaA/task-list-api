@@ -1,57 +1,43 @@
 from flask import Blueprint, request, Response
 from app.models.task import Task
-from app.routes.route_utilities import validate_model, create_model
+from app.routes.route_utilities import validate_model, create_model, get_model_with_filters
 from app.db import db
 from datetime import datetime, timezone
 import os
 import requests
 
-tasks_bp = Blueprint('tasks_bp', __name__, url_prefix='/tasks')
+bp = Blueprint('tasks_bp', __name__, url_prefix='/tasks')
 
-@tasks_bp.post('')
+@bp.post('')
 def create_task():
     request_body = request.get_json()
     return create_model(Task, request_body)
 
-@tasks_bp.get('')
+@bp.get('')
 def get_all_tasks():
-    query = db.select(Task)
-    
     title_param = request.args.get('title')
     description_param = request.args.get('description')
-    completed_param = request.args.get('completed_at')
     sort = request.args.get('sort')
 
-    if title_param:
-        query = query.where(Task.title.ilike(f"%{title_param}%"))
-    if description_param:
-        query = query.where(Task.description.ilike(f"%{description_param}%"))
-    if completed_param:
-        pass
-    if sort == 'desc':
-        query = query.order_by(Task.title.desc())
-    elif sort == 'asc':
-        query = query.order_by(Task.title.asc())
-    else:
-        query = query.order_by(Task.id)
+    filters = {
+        "title": title_param,
+        "description": description_param
+    }
 
-    tasks = db.session.scalars(query)
+    sort_by = "title" if sort in ["asc", "desc"] else "id"
+    sort_order = sort if sort in ["asc", "desc"] else "asc"
 
+    tasks = get_model_with_filters(Task, filters=filters, sort_by=sort_by, sort_order=sort_order)
 
-    task_response = []
+    return [task.to_dict() for task in tasks]
 
-    for task in tasks:
-        task_response.append(task.to_dict())
-
-    return task_response
-
-@tasks_bp.get('/<task_id>')
+@bp.get('/<task_id>')
 def get_one_task(task_id):
     task = validate_model(Task, task_id)
+    include_goal = task.goal_id is not None
+    return task.to_dict(include_goal=include_goal)
 
-    return task.to_dict()
-
-@tasks_bp.put('/<task_id>')
+@bp.put('/<task_id>')
 def update_one_task(task_id):
     task = validate_model(Task, task_id)
     request_body = request.get_json()
@@ -63,7 +49,7 @@ def update_one_task(task_id):
 
     return Response(status=204, mimetype='application/json')
 
-@tasks_bp.delete('/<task_id>')
+@bp.delete('/<task_id>')
 def delete_task(task_id):
     task = validate_model(Task, task_id)
 
@@ -72,7 +58,7 @@ def delete_task(task_id):
     
     return Response(status=204, mimetype='application/json')
 
-@tasks_bp.patch('<task_id>/mark_complete')
+@bp.patch('/<task_id>/mark_complete')
 def mark_complete_task(task_id):
     task = validate_model(Task, task_id)
     url = 'https://slack.com/api/chat.postMessage' # Slack API endpoint
@@ -97,9 +83,9 @@ def mark_complete_task(task_id):
 
     return Response(status=204, mimetype='application/json')
 
-@tasks_bp.patch('<task_id>/mark_incomplete')
+@bp.patch('/<task_id>/mark_incomplete')
 def mark_incomplete_task(task_id):
-    task= validate_model(Task, task_id)
+    task = validate_model(Task, task_id)
     
     task.completed_at = None
 
