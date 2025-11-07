@@ -31,3 +31,23 @@ def create_model(cls, model_data):
     db.session.commit()
 
     return new_model.to_dict(), 201
+
+def get_model_with_filters(model, filters=None, sort_by=None, sort_order=None):
+    query = db.select(model)
+
+    # Apply filters (partial match using ilike)
+    if filters:
+        for attr, value in filters.items():
+            if value is not None:
+                column = getattr(model, attr)
+                query = query.where(column.ilike(f"%{value}%"))
+
+    # Apply sorting
+    sort_by = sort_by or "id"
+    column = getattr(model, sort_by)
+    if sort_order == "desc":
+        query = query.order_by(column.desc())
+    else:
+        query = query.order_by(column.asc())
+
+    return db.session.scalars(query)

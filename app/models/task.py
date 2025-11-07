@@ -38,15 +38,18 @@ class Task(db.Model):
         )
 
     # Turn this Task object into a dictionary so we can send it as JSON in a response
-    def to_dict(self):
+    def to_dict(self, include_goal=False):
 
-        return {
+        base = {
             'id': self.id,
             'title': self.title,
             'description': self.description,
             'is_complete': bool(self.completed_at),
-            "goal_id": self.goal_id,
         }
+    
+        if include_goal:
+            base['goal_id'] = self.goal_id
+        return base
 
 
 # tasks = [
