@@ -34,8 +34,7 @@ def get_all_tasks():
 @bp.get('/<task_id>')
 def get_one_task(task_id):
     task = validate_model(Task, task_id)
-    include_goal = task.goal_id is not None
-    return task.to_dict(include_goal=include_goal)
+    return task.to_dict()
 
 @bp.put('/<task_id>')
 def update_one_task(task_id):

@@ -1,4 +1,5 @@
 from app.models.goal import Goal
+from app.models.task import Task
 from app.db import db
 import pytest
 
@@ -112,3 +113,22 @@ def test_get_task_includes_goal_id(client, one_task_belongs_to_one_goal):
         "description": "Notice something new every day",
         "is_complete": False
     }
+
+def test_to_dict_includes_goal_id_when_set(app, one_task_belongs_to_one_goal):
+    task = db.session.scalar(db.select(Task).where(Task.id == 1))
+    assert task is not None
+
+    result = task.to_dict()
+
+    assert 'goal_id' in result
+    # the fixture creates a goal with id == 1
+    assert result['goal_id'] == 1
+
+
+def test_to_dict_omits_goal_id_when_none(app, one_task):
+    task = db.session.scalar(db.select(Task).where(Task.id == 1))
+    assert task is not None
+
+    result = task.to_dict()
+
+    assert 'goal_id' not in result

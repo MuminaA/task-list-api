@@ -38,7 +38,17 @@ class Task(db.Model):
         )
 
     # Turn this Task object into a dictionary so we can send it as JSON in a response
-    def to_dict(self, include_goal=False):
+    def to_dict(self, include_goal: Optional[bool] = None):
+        """Return a dict representation of the Task.
+
+        By default (include_goal is None) this will include the task's
+        `goal_id` when the task belongs to a goal. Callers can override
+        this by passing True/False explicitly for include_goal.
+        """
+
+        # If caller didn't specify, include goal_id when it's present on the task
+        if include_goal is None:
+            include_goal = self.goal_id is not None
 
         base = {
             'id': self.id,
@@ -46,9 +56,10 @@ class Task(db.Model):
             'description': self.description,
             'is_complete': bool(self.completed_at),
         }
-    
+
         if include_goal:
             base['goal_id'] = self.goal_id
+
         return base
 
 
